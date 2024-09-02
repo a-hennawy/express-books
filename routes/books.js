@@ -1,8 +1,10 @@
 const express = require("express");
 const Book = require("../models/book");
-
+const { validate } = require("jsonschema");
+const newBookSchema = require("../schemas/newBookSchema");
+const updateBookSchema = require("../schemas/updateBookSchema");
 const router = new express.Router();
-
+const ExpressError = require("../expressError");
 /** GET / => {books: [book, ...]}  */
 
 router.get("/", async function (req, res, next) {
@@ -29,6 +31,16 @@ router.get("/:id", async function (req, res, next) {
 
 router.post("/", async function (req, res, next) {
   try {
+    const bookValidation = validate(req.body, newBookSchema);
+    if (!bookValidation.valid) {
+      const listOfErrors = bookValidation.errors.map((e) => e.stack);
+      // console.log(listOfErrors);
+      const err = {
+        Issue: "Invalid or incomplete information",
+        Reasons: listOfErrors,
+      };
+      throw new ExpressError(err, 404);
+    }
     const book = await Book.create(req.body);
     return res.status(201).json({ book });
   } catch (err) {
@@ -40,6 +52,21 @@ router.post("/", async function (req, res, next) {
 
 router.put("/:isbn", async function (req, res, next) {
   try {
+    if ("isbn" in req.body) {
+      return next({
+        status: 400,
+        message: "Remove isbn code from info",
+      });
+    }
+    const bookValidation = validate(req.body, updateBookSchema);
+    if (!bookValidation.valid) {
+      const listOfErrors = bookValidation.errors.map((e) => e.stack);
+      const err = {
+        Issue: "Invalid or incomplete information",
+        Reasons: listOfErrors,
+      };
+      throw new ExpressError(err, 404);
+    }
     const book = await Book.update(req.params.isbn, req.body);
     return res.json({ book });
   } catch (err) {
